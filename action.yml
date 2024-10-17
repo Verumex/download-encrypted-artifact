@@ -1,0 +1,74 @@
+name: 'Download an encrypted Build Artifact'
+description: 'Download a build artifact that was previously uploaded in the workflow by the upload-artifact action'
+author: 'GitHub'
+inputs:
+  gpg_secret_key:
+    description: A single or list of private GPG keys used to decrypt the artifact
+    required: true
+  name:
+    description: 'Name of the encrypted artifact to download. If unspecified, all artifacts for the run are downloaded.'
+    required: false
+  path:
+    description: 'Destination path. Supports basic tilde expansion. Defaults to $GITHUB_WORKSPACE'
+    required: false
+  pattern:
+    description: 'A glob pattern matching the artifacts that should be downloaded. Ignored if name is specified.'
+    required: false
+  merge-multiple:
+    description: 'When multiple artifacts are matched, this changes the behavior of the destination directories.
+      If true, the downloaded artifacts will be in the same directory specified by path.
+      If false, the downloaded artifacts will be extracted into individual named directories within the specified path.'
+    required: false
+    default: 'false'
+  github-token:
+    description: 'The GitHub token used to authenticate with the GitHub API.
+      This is required when downloading artifacts from a different repository or from a different workflow run.
+      If this is not specified, the action will attempt to download artifacts from the current repository and the current workflow run.'
+    required: false
+  repository:
+    description: 'The repository owner and the repository name joined together by "/".
+      If github-token is specified, this is the repository that artifacts will be downloaded from.'
+    required: false
+    default: ${{ github.repository }}
+  run-id:
+    description: 'The id of the workflow run where the desired download artifact was uploaded from.
+      If github-token is specified, this is the run that artifacts will be downloaded from.'
+    required: false
+    default: ${{ github.run_id }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Import GPG keys
+      shell: bash
+      run: |
+        echo "${{ inputs.gpg_secret_key }}" | awk 'BEGIN { RS = "-----END PGP PUBLIC KEY BLOCK-----" } { print $0 "-----END PGP PUBLIC KEY BLOCK-----" }' | gpg --batch --import
+
+    - name: Download encrypted artifact
+      id: download
+      uses: actions/download-artifact@v4
+      with:
+        name: ${{ inputs.name }}
+        path: ${{ runner.temp }}
+        pattern: ${{ inputs.pattern }}
+        merge-multiple: ${{ inputs.merge-multiple }}
+        github-token: ${{ inputs.github-token }}
+        repository: ${{ inputs.repository }}
+        run-id: ${{ inputs.run-id }}
+
+    - name: Decrypt the downloaded encrypted artifact(s)
+      shell: bash
+      run: |
+
+        set -e
+
+        # Prepare output directory
+        output_dir="${{ inputs.path }}"
+        mkdir -p $output_dir
+
+        archive_path="${{ runner.temp }}/${{ inputs.name }}.tar"
+        gpg --output "$archive_path" --decrypt "${{ runner.temp }}/${{ inputs.name }}.tar.gpg"
+
+        tar -xf $archive_path -C $output_dir
+
+        echo "All artifacts are extracted into ${output_dir}"
