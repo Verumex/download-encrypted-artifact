@@ -11,6 +11,7 @@ inputs:
   path:
     description: 'Destination path. Supports basic tilde expansion. Defaults to $GITHUB_WORKSPACE'
     required: false
+    default: ${{ github.workspace }}
   pattern:
     description: 'A glob pattern matching the artifacts that should be downloaded. Ignored if name is specified.'
     required: false
