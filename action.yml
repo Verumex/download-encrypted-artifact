@@ -68,8 +68,12 @@ runs:
         mkdir -p $output_dir
 
         archive_path="${{ runner.temp }}/${{ inputs.name }}.tar"
-        gpg --output "$archive_path" --decrypt "${{ runner.temp }}/${{ inputs.name }}.tar.gpg"
+        gpg --no-tty --yes --output "$archive_path" --decrypt "${{ runner.temp }}/${{ inputs.name }}.tar.gpg"
 
         tar -xf $archive_path -C $output_dir
 
         echo "All artifacts are extracted into ${output_dir}"
+
+        # Clean up
+        rm "$archive_path"
+        rm "${{ runner.temp }}/${{ inputs.name }}.tar.gpg"
